@@ -1,0 +1,391 @@
+---
+title: "AQ Bench AOA Comparison"
+author: "Marvin Ludwig"
+date: "26/07/2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(caret)
+library(RStoolbox)
+library(mlutils)
+library(viridis)
+library(raster)
+library(ggpubr)
+
+```
+
+# All Predictors, CV-Juelich
+
+
+## Model Infos
+
+```{r}
+model = readRDS("data/models/model_allvars_juelichcv.RDS")
+model
+```
+
+## Variable Importance (Gini)
+
+```{r}
+plot(varImp(model, scale = FALSE))
+```
+
+## Validation on Test Set
+
+```{r}
+testdata = readRDS("data/validations/validation_allvars_juelichcv.RDS")
+
+r = round(Metrics::rmse(testdata$o3_average_values, testdata$pred_o3_average_values), 2)
+
+
+ggplot(testdata, aes(x = o3_average_values, y = pred_o3_average_values))+
+    geom_point()+
+    scale_x_continuous(name = expression(paste("Observed ",O[3] ," Average Values")), limits = c(0, 60), expand = c(0,0))+
+    scale_y_continuous(name = expression(paste("Predicted ",O[3] ," Average Values")), limits = c(0, 60), expand = c(0,0))+
+    geom_abline(slope = 1, intercept = 0, color = "red")+
+    stat_regline_equation(aes(label = ..rr.label..), label.x = 1)+
+    annotate(geom = "text", label = paste0("RMSE = ", r), x = 1, y = 50, hjust = 0)+
+    coord_equal()+
+    theme_bw()
+```
+
+
+
+
+
+
+## AOA Stats
+
+```{r}
+a = readRDS("data/aoas/aoa_allvars_juelichcv.RDS")
+aoa_stats = attributes(a)$aoa_stats
+
+print(paste0("Mean Distance in Training Data: ", round(aoa_stats$Mean_train, 2)))
+
+
+print(paste0("DI threshold: ", round(aoa_stats$threshold, 4)))
+
+
+
+```
+
+```{r}
+
+p = raster("data/predictions/prediction_allvars_juelichcv.grd")
+
+a2 = a[[2]]
+a2[a2 == 1] = NA
+
+
+pmap = ggR(p, geom_raster = TRUE)+
+    scale_fill_gradientn(name = expression(paste(O[3] ," Average Values")),
+                         colors = viridis(50), limits = c(15, 50))+
+    ggnewscale::new_scale_fill()+
+    ggR(a2, ggLayer = TRUE, forceCat = TRUE, geom_raster = TRUE, alpha = NA)+
+    scale_fill_manual(name = "Out of AOA", values = c("0" = "grey70"), na.value = "transparent")+
+    coord_equal(expand = FALSE)+
+    theme_map()
+
+
+pmap
+
+```
+
+## Standard Deviation of Predictions
+
+```{r}
+p = raster("data/predictionSDs/sd_allvars_juelichcv.grd")
+
+a2 = a[[2]]
+a2[a2 == 1] = NA
+
+
+pmap = ggR(p, geom_raster = TRUE)+
+    scale_fill_gradientn(name = expression(paste(O[3] ," Average Values SD[%]")),
+                         colors = viridis(50), limits = c(0, 70))+
+    coord_equal(expand = FALSE)+
+    theme_map()
+
+
+pmap
+
+```
+
+
+```{r}
+a = raster::stack(p, a[[2]])
+a = as.data.frame(a)
+
+a$AOA = as.factor(a$AOA)
+ggplot(a, aes(y = layer, x = AOA, group = AOA))+
+    geom_boxplot()+
+    scale_y_continuous(name = expression(paste(O[3] ," Average Values SD[%]")))+
+    theme_pubr()
+```
+
+
+
+
+# Forward Feature Selection, Juelich CV
+
+
+
+## Model Infos
+
+```{r}
+model = readRDS("data/models/model_ffs_juelichcv.RDS")
+model
+```
+
+
+
+
+
+## Variable Importance (Gini)
+
+```{r}
+plot(varImp(model, scale = FALSE))
+```
+
+## Validation on Test Set
+
+```{r}
+testdata = readRDS("data/validations/validation_ffs_juelichcv.RDS")
+
+r = round(Metrics::rmse(testdata$o3_average_values, testdata$pred_o3_average_values), 2)
+
+
+ggplot(testdata, aes(x = o3_average_values, y = pred_o3_average_values))+
+    geom_point()+
+    scale_x_continuous(name = expression(paste("Observed ",O[3] ," Average Values")), limits = c(0, 60), expand = c(0,0))+
+    scale_y_continuous(name = expression(paste("Predicted ",O[3] ," Average Values")), limits = c(0, 60), expand = c(0,0))+
+    geom_abline(slope = 1, intercept = 0, color = "red")+
+    stat_regline_equation(aes(label = ..rr.label..), label.x = 1)+
+    annotate(geom = "text", label = paste0("RMSE = ", r), x = 1, y = 50, hjust = 0)+
+    coord_equal()+
+    theme_bw()
+```
+
+
+
+## AOA Stats
+
+```{r}
+a = readRDS("data/aoas/aoa_ffs_juelich_old.RDS")
+aoa_stats = attributes(a)$aoa_stats
+
+print(paste0("Mean Distance in Training Data: ", round(aoa_stats$Mean_train, 2)))
+
+
+print(paste0("DI threshold: ", round(aoa_stats$threshold, 4)))
+
+```
+
+```{r}
+
+p = raster("data/predictions/prediction_ffs_juelichcv.grd")
+mlutils::ggAOA(p, a$AOA)
+
+```
+
+
+## Standard Deviation of Predictions
+
+```{r}
+p = raster("data/predictionSDs/sd_ffs_juelichcv.grd")
+
+a2 = a[[2]]
+a2[a2 == 1] = NA
+
+
+pmap = ggR(p, geom_raster = TRUE)+
+    scale_fill_gradientn(name = expression(paste(O[3] ," Average Values SD[%]")),
+                         colors = viridis(50), limits = c(0, 70))+
+    coord_equal(expand = FALSE)+
+    theme_map()
+
+
+pmap
+
+```
+
+
+```{r}
+a = raster::stack(p, a[[2]])
+a = as.data.frame(a)
+
+a$AOA = as.factor(a$AOA)
+ggplot(a, aes(y = climatic_zone, x = AOA, group = AOA))+
+    geom_boxplot()+
+    scale_y_continuous(name = expression(paste(O[3] ," Average Values SD[%]")))+
+    theme_pubr()
+```
+
+
+# No Latitude and Climatic Zone, Juelich-CV
+
+
+## Model Infos
+
+```{r}
+model = readRDS("data/models/model_nolat_juelichcv.RDS")
+model
+```
+
+## Variable Importance (Gini)
+
+```{r}
+plot(varImp(model, scale = FALSE))
+```
+
+## Validation on Test Set
+
+```{r}
+testdata = readRDS("data/validations/validation_nolat_juelichcv.RDS")
+
+r = round(Metrics::rmse(testdata$o3_average_values, testdata$pred_o3_average_values), 2)
+
+
+ggplot(testdata, aes(x = o3_average_values, y = pred_o3_average_values))+
+    geom_point()+
+    scale_x_continuous(name = expression(paste("Observed ",O[3] ," Average Values")), limits = c(0, 60), expand = c(0,0))+
+    scale_y_continuous(name = expression(paste("Predicted ",O[3] ," Average Values")), limits = c(0, 60), expand = c(0,0))+
+    geom_abline(slope = 1, intercept = 0, color = "red")+
+    stat_regline_equation(aes(label = ..rr.label..), label.x = 1)+
+    annotate(geom = "text", label = paste0("RMSE = ", r), x = 1, y = 50, hjust = 0)+
+    coord_equal()+
+    theme_bw()
+```
+
+## AOA Stats
+
+```{r}
+a = readRDS("data/aoas/aoa_nolat_juelichcv.RDS")
+aoa_stats = attributes(a)$aoa_stats
+
+print(paste0("Mean Distance in Training Data: ", round(aoa_stats$Mean_train, 2)))
+print(paste0("DI threshold: ", round(aoa_stats$threshold, 4)))
+```
+
+
+```{r}
+p = raster("data/predictions/prediction_nolat_juelichcv.grd")
+mlutils::ggAOA(p, a$AOA)
+```
+
+## Standard Deviation of Predictions
+```{r}
+p = raster("data/predictionSDs/sd_nolat_juelichcv.grd")
+
+a2 = a[[2]]
+a2[a2 == 1] = NA
+
+
+pmap = ggR(p, geom_raster = TRUE)+
+    scale_fill_gradientn(name = expression(paste(O[3] ," Average Values SD[%]")),
+                         colors = viridis(50), limits = c(0, 70))+
+    coord_equal(expand = FALSE)+
+    theme_map()
+
+
+pmap
+
+```
+
+```{r}
+a = raster::stack(p, a[[2]])
+a = as.data.frame(a)
+
+a$AOA = as.factor(a$AOA)
+ggplot(a, aes(y = climatic_zone, x = AOA, group = AOA))+
+    geom_boxplot()+
+    scale_y_continuous(name = expression(paste(O[3] ," Average Values SD[%]")))+
+    theme_pubr()
+```
+
+# FFS, No Latitude and Climatic Zone, Juelich-CV
+
+
+## Model Infos
+
+```{r}
+model = readRDS("data/models/model_ffsnolat_juelichcv.RDS")
+model
+```
+
+## Variable Importance (Gini)
+
+```{r}
+plot(varImp(model, scale = FALSE))
+```
+
+## Validation on Test Set
+
+```{r}
+testdata = readRDS("data/validations/validation_ffsnolat_juelichcv.RDS")
+
+r = round(Metrics::rmse(testdata$o3_average_values, testdata$pred_o3_average_values), 2)
+
+
+ggplot(testdata, aes(x = o3_average_values, y = pred_o3_average_values))+
+    geom_point()+
+    scale_x_continuous(name = expression(paste("Observed ",O[3] ," Average Values")), limits = c(0, 60), expand = c(0,0))+
+    scale_y_continuous(name = expression(paste("Predicted ",O[3] ," Average Values")), limits = c(0, 60), expand = c(0,0))+
+    geom_abline(slope = 1, intercept = 0, color = "red")+
+    stat_regline_equation(aes(label = ..rr.label..), label.x = 1)+
+    annotate(geom = "text", label = paste0("RMSE = ", r), x = 1, y = 50, hjust = 0)+
+    coord_equal()+
+    theme_bw()
+```
+
+## AOA Stats
+
+```{r}
+a = readRDS("data/aoas/aoa_ffsnolat_juelichcv.RDS")
+aoa_stats = attributes(a)$aoa_stats
+
+print(paste0("Mean Distance in Training Data: ", round(aoa_stats$Mean_train, 2)))
+print(paste0("DI threshold: ", round(aoa_stats$threshold, 4)))
+```
+
+
+```{r}
+p = raster("data/predictions/prediction_ffsnolat_juelichcv.grd")
+mlutils::ggAOA(p, a$AOA)
+```
+
+## Standard Deviation of Predictions
+
+
+```{r}
+p = raster("data/predictionSDs/sd_ffsnolat_juelichcv.grd")
+
+a2 = a[[2]]
+a2[a2 == 1] = NA
+
+
+pmap = ggR(p, geom_raster = TRUE)+
+    scale_fill_gradientn(name = expression(paste(O[3] ," Average Values SD[%]")),
+                         colors = viridis(50), limits = c(0, 70))+
+    coord_equal(expand = FALSE)+
+    theme_map()
+
+
+pmap
+
+```
+
+```{r}
+a = raster::stack(p, a[[2]])
+a = as.data.frame(a)
+
+a$AOA = as.factor(a$AOA)
+ggplot(a, aes(y = climatic_zone, x = AOA, group = AOA))+
+    geom_boxplot()+
+    scale_y_continuous(name = expression(paste(O[3] ," Average Values SD[%]")))+
+    theme_pubr()
+```

@@ -1,0 +1,35 @@
+Feature engineering:
+Different types of savanna, shrublands, and forests are given individually in the original land cover dataset. We
+merged them into ‘savanna’, ‘forest’ and ‘shrubland’
+Instead of the latitude, we took the absolute latitude, since radiation and temperature decrease when moving away
+from the equator regardless in which direction
+
+Final predicor list:
+Climatic zone
+Absolute latitude
+Altitude
+Relative altitude
+Water in 25 km area
+Forest in 25 km area
+Shrublands in 25 km area
+Savannas in 25 km area
+Grasslands in 25 km area
+Permanent wetlands in 25 km area
+Croplands in 25 km area
+Rice production
+NOx emissions
+NO2column
+Population density
+Maximum population density in 5 km area
+Maximum population density 25 km area
+Nightlight 1 km
+Nightlight in 5 km area
+Maximum nightlight in 25 km area
+
+
+Predictors we did not use because they favoured overfitting:
+Urban And Built-Up in 25 km area
+Cropland / Natural vegetation mosaic in 25 km area
+Snow and ice in 25 km area
+Barren or sparsely vegetated in 25 km area
+Wheat production
