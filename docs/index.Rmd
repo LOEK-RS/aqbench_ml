@@ -1,0 +1,141 @@
+---
+title: "AQBench Random Forest Explorer"
+author: "Marvin Ludwig"
+date: "28/10/2021"
+output: 
+    flexdashboard::flex_dashboard:
+        navbar:
+          - { title: "About", href: "https://www.uni-muenster.de/RemoteSensing/en/index.html", align: right }
+          - { icon: "fa-github", href: "https://github.com/Ludwigm6", align: right}
+---
+
+```{r setup, include=FALSE}
+library(stars)
+library(tmap)
+library(viridis)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+
+aoamap = function(p, a, s){
+    tm_shape(p, raster.downsample = TRUE) +
+        tm_raster(palette = mako(50), style = s,
+                  legend.is.portrait = TRUE, title = "Average O3")+
+        tm_shape(a, raster.downsample = FALSE)+
+        tm_raster(palette = c("0" = "magenta"), title = "AOA", legend.show = FALSE)+
+        tm_layout(legend.show = TRUE,
+                  bg.color = "grey90",
+                  frame = FALSE,
+                  panel.show = FALSE,
+                  legend.bg.color = "white",
+                  legend.bg.alpha = 0.5,
+                  legend.position = c("left", "bottom"))+
+        tm_add_legend(title = "",
+                      type = "fill",
+                      col="magenta",
+                      border.col = "magenta",
+                      labels = "Outside AOA")
+}
+```
+
+
+
+AQ-Bench global prediction
+==========
+
+
+Column
+----------------
+
+### Map and AOA
+
+
+```{r}
+pred = read_stars("data/predictions/prediction_nolat_juelichcv.grd")
+aoa = readRDS("data/aoas/aoa_ffsnolat_juelichcv.RDS")
+aoa$AOA[aoa$AOA == 1] = NA
+aoa = stars::st_as_stars(aoa$AOA)
+aoamap(p = pred, a = aoa, s = "order")
+
+```
+
+
+Column
+-------------------
+
+### Model Infos
+
+
+```{r}
+model = readRDS("data/models/model_ffsnolat_juelichcv.RDS")
+model
+```
+
+
+
+### Variable Importance
+
+```{r}
+plot(varImp(model, scale = FALSE))
+```
+
+
+Random Forest Explorer
+=========================
+
+
+
+Column
+-----
+
+
+### Training Sample Influence
+
+How many training samples were utilized to come up with a particular prediction?
+
+```{r}
+global_sample = st_read("data/observations/global_sample.gpkg", quiet = TRUE)
+same_nodes = readRDS("explorer/rf_sample_influence_same_nodes.RDS")
+
+global_sample$number_of_samples =  map_int(same_nodes, function(obs){
+    return(nrow(obs))
+})
+
+plot(global_sample[,"number_of_samples"], pch = 15, pal = plasma)
+```
+
+
+Column
+-----
+
+
+
+### Inside vs. Outside AOA
+
+Is the number of training samples utilized related to the AOA?
+
+
+```{r}
+aoa = readRDS("data/aoas/aoa_ffsnolat_juelichcv.RDS")
+
+aoa_extract = raster::extract(aoa[[2]], global_sample, df = TRUE)
+global_sample$AOA = aoa_extract$AOA
+
+boxplot(number_of_samples ~ AOA, data = global_sample)
+
+```
+
+
+
+### Training Samples
+
+
+```{r}
+ts = st_read("data/observations/AQ_bench_dataset_extraction.gpkg", quiet = TRUE)
+mapview::mapview(ts[,"o3_average_values"])
+
+```
+
+
+
+
+
